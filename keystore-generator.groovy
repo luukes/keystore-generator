@@ -55,6 +55,7 @@ cli.ou( longOpt: 'orgunit',   required: true,  'Organizational unit', args: 1, a
 cli.cn( longOpt: 'cname',     required: true,  'Common name (FQDN)', args: 1, argName: 'cname')
 cli.y(  longOpt: 'years',     required: false, 'Expire in years', args: 1, argName: 'years')
 cli.p(  longOpt: 'password',  required: false, 'Keystore password', args: 1, argName: 'password')
+cli.a(  longOpt: 'alias',     required: false, 'Alias', args: 1, argName: 'alias')
 cli.ow( longOpt: 'overwrite', required: false, 'Overwrite keystore if exists')
 def opts = cli.parse(args)
 // cli.parse shows the usage and returns null if there are params missing
@@ -68,6 +69,12 @@ if (opts.h || opts.arguments().isEmpty()) {
 
 try {
     log('Start keystore/cert generation ...')
+
+    // defaults
+    int bits = opts.b ? Integer.parseInt(opts.b) : 2048
+    int expiresInYears = opts.years ? Integer.parseInt(opts.years) : 5
+    String alias = opts.a ? opts.a : 'localhost'
+
     File keystore = new File(opts.arguments()[0])
     log("Use keystore file [$keystore]")
     if (keystore.exists()) {
@@ -82,8 +89,7 @@ try {
     Security.addProvider(new BouncyCastleProvider())
     
     KeyPairGenerator kpGen = KeyPairGenerator.getInstance('RSA', 'BC')
-    kpGen.initialize(Integer.parseInt(opts.b), new SecureRandom())
-    log("Use keylength ${opts.b}")
+    kpGen.initialize(bits, new SecureRandom())
 
     KeyPair pair = kpGen.generateKeyPair()
     String subject = "C=${opts.c}, ST=${opts.st}, L=${opts.l}, O=${opts.o}, OU=${opts.ou}, CN=${opts.cn}"
@@ -91,7 +97,7 @@ try {
     X500Principal principal = new X500Principal(subject)
     long now = System.currentTimeMillis()
     Date startDate = new Date(now - ONEDAY_MILLIS)
-    Date endDate = new Date(now + Integer.parseInt(opts.years) * ONEDAY_MILLIS*365)
+    Date endDate = new Date(now + expiresInYears * ONEDAY_MILLIS*365)
     BigInteger serial = BigInteger.valueOf(now)
     X509v3CertificateBuilder certGen = new JcaX509v3CertificateBuilder(principal, serial, startDate, endDate, principal, pair.getPublic())
     
@@ -111,18 +117,19 @@ try {
     cert.checkValidity( new Date() )
     cert.verify( cert.getPublicKey() )
 
-    KeyStore store = KeyStore.getInstance('JKS')
+    log("Use keylength: $bits | sign: $sigalg | expire in: $expiresInYears years | alias: $alias")
 
+    KeyStore store = KeyStore.getInstance('JKS')
     // if no password is given create a random one
     String pwd = ''
     SecureRandom sr = new SecureRandom()
-    if (opts.password) {
-        pwd = opts.password
+    if (opts.p) {
+        pwd = opts.p
     } else {
         byte[] bytes = new byte[16];
         sr.nextBytes(bytes);
         pwd = bytes.encodeHex().toString()
-        log("Keystore password is [$pwd]")
+        log("Keystore password [$pwd]")
     }
     // Output a obfuscated password for jetty
     def jettyPwd = Password.obfuscate(pwd)
@@ -140,7 +147,7 @@ try {
     KeyStore.LoadStoreParameter lsp = null
     store.load(lsp)
     def certArray = [ cert ].toArray()
-    store.setKeyEntry('localhost', pair.getPrivate(), ksPwd, certArray as Certificate[])
+    store.setKeyEntry(alias, pair.getPrivate(), ksPwd, certArray as Certificate[])
     FileOutputStream fos = new FileOutputStream(keystore)
     store.store(fos, ksPwd)
     fos.close()
