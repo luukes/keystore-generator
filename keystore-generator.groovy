@@ -54,8 +54,8 @@ cli.o(  longOpt: 'org',       required: true,  'Organization', args: 1, argName:
 cli.ou( longOpt: 'orgunit',   required: true,  'Organizational unit', args: 1, argName: 'ounit')
 cli.cn( longOpt: 'cname',     required: true,  'Common name (FQDN)', args: 1, argName: 'cname')
 cli.y(  longOpt: 'years',     required: false, 'Expire in years', args: 1, argName: 'years')
+cli.p(  longOpt: 'password',  required: false, 'Keystore password', args: 1, argName: 'password')
 cli.ow( longOpt: 'overwrite', required: false, 'Overwrite keystore if exists')
-cli.p(  longOpt: 'password',   required: false, 'Overwrite keystore if exists', args: 1, argName: 'password')
 def opts = cli.parse(args)
 // cli.parse shows the usage and returns null if there are params missing
 if (!opts) return 1
