@@ -1,2 +1,3 @@
 # keystore-generator
-Generate a keystore including a certificate in one step
+Generate a java keystore including a key pair in one step and obfuscating the password for jetty.
+
